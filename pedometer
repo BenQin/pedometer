@@ -1,0 +1,175 @@
+clear;
+clc;
+raw_data1 = load('d:\workspace\log.txt');
+filtered_data1 = mean_filter(raw_data1, 8);
+filtered_data = filtered_data1;
+[row_size, col_size] = size(raw_data1);
+compose = raw_data1(:, 1) .^ 2 + raw_data1(:, 2) .^ 2 + raw_data1(:, 3) .^ 2;
+%compose = (abs(raw_data1(:, 1))  + abs(raw_data1(:, 2))  + abs(raw_data1(:, 3))) / 3;
+filtered_compose = mean_filter(compose, 8);
+start_index = 1;
+end_index = row_size;
+min_wavelength_lo = 6;
+min_wavelength = min_wavelength_lo;
+max_wavlength = 50;
+min_valid_vpp_lo = 6*10000000;
+min_valid_vpp = min_valid_vpp_lo;
+min_valid_vpp_factor = 0.8;
+min_valid_vpp_factor2 = 0.45;
+vpp_seq = zeros(3);
+vpp_seq(1) = min_valid_vpp;
+vpp_seq(2) = min_valid_vpp;
+vpp_seq(3) = min_valid_vpp;
+wavelength_seq = zeros(3);
+wavelength_seq(1) = min_wavelength;
+wavelength_seq(2) = min_wavelength;
+wavelength_seq(3) = min_wavelength;
+% subplot(4, 1, 1);
+% plot(filtered_data(start_index : end_index, 1), '-b');
+% subplot(4, 1, 2);
+% plot(filtered_data(start_index : end_index, 2), '-b');
+% subplot(4, 1, 3);
+% plot(filtered_data(start_index : end_index, 3), '-b');
+% subplot(4, 1, 4);
+% plot(filtered_compose(start_index : end_index), '-b');
+% figure(2)
+subplot(2, 1, 1);
+plot(compose(start_index : end_index), '-b.');
+subplot(2, 1, 2);
+plot(filtered_compose(start_index : end_index), '-b.');
+
+
+% step counter
+peak = 0;
+valley = 0;
+i = 1;
+ascend = [0, 0];
+count = 0;
+ascend_count = 0;
+decend_count = 0;
+peak_val = filtered_compose(1);
+valley_val = filtered_compose(1);
+pp_val = 0;
+for i = 1 : end_index - 1
+    ascend(2) = ascend(1);
+    if filtered_compose(i) < filtered_compose(i + 1)
+        ascend(1) = 1;
+        ascend_count = ascend_count + 1;
+    else
+        ascend(1) = 0;
+        decend_count = decend_count + 1;
+    end
+    if ascend(1) < ascend(2)
+        wavelength_seq(3) = wavelength_seq(2);
+        wavelength_seq(2) = wavelength_seq(1);
+        wavelength_seq(1) = ascend_count;
+            if (ascend_count >= min_wavelength) && (ascend_count < max_wavlength)
+                ascend_count = 0;
+                decend_count = 0;
+                peak_val = filtered_compose(i);
+                pp_val = abs(peak_val - valley_val);
+                if pp_val >= min_valid_vpp
+                    peak = peak + 1;
+                    i
+                    pp_val
+                    %min_valid_vpp = pp_val * min_valid_vpp_factor;
+                    vpp_seq(3) = vpp_seq(2);
+                    vpp_seq(2) = vpp_seq(1);
+                    vpp_seq(1) = pp_val;
+                    min_valid_vpp = 0.5 * vpp_seq(1) + 0.3 * vpp_seq(2) + 0.2 * vpp_seq(3);
+                else
+                    %min_valid_vpp = (min_valid_vpp_lo + min_valid_vpp) * min_valid_vpp_factor2;
+                    min_valid_vpp = 0.4 * min_valid_vpp_lo + 0.3 * vpp_seq(1) + 0.2 * vpp_seq(2) + 0.1 * vpp_seq(3);
+                    if pp_val >= min_valid_vpp
+                        peak = peak + 1;
+                        i
+                        pp_val
+                        %min_valid_vpp = pp_val * min_valid_vpp_factor;
+                        vpp_seq(3) = vpp_seq(2);
+                        vpp_seq(2) = vpp_seq(1);
+                        vpp_seq(1) = pp_val;
+                        min_valid_vpp = 0.5 * vpp_seq(1) + 0.3 * vpp_seq(2) + 0.2 * vpp_seq(3);
+                    end
+                end
+            else
+                vpp_seq(3) = vpp_seq(2);
+                vpp_seq(2) = vpp_seq(1);
+                vpp_seq(1) = min_valid_vpp_lo;
+                min_valid_vpp = 0.6 * vpp_seq(1) + 0.3 * vpp_seq(2) + 0.1 * vpp_seq(3);
+                if ascend_count > decend_count
+                    decend_count = 0;
+                    if filtered_compose(i) > peak_val
+                        peak_val = filtered_compose(i);
+                    end
+                elseif decend_count > ascend_count
+                    ascend_count = 0;
+                end
+            end
+            min_wavelength = 0.5 * wavelength_seq(1) + 0.4 * wavelength_seq(2) + 0.1 * wavelength_seq(3);
+         if min_wavelength < min_wavelength_lo
+            min_wavelength = min_wavelength_lo;
+        end
+    elseif ascend(1) > ascend(2)
+        wavelength_seq(3) = wavelength_seq(2);
+        wavelength_seq(2) = wavelength_seq(1);
+        wavelength_seq(1) = decend_count;
+            if (decend_count >= min_wavelength) && (decend_count < max_wavlength)
+                decend_count = 0;
+                ascend_count = 0;
+                valley_val = filtered_compose(i);
+                pp_val = abs(peak_val - valley_val);
+                if pp_val >= min_valid_vpp
+                    valley = valley + 1;
+                    i
+                    pp_val
+                    %min_valid_vpp = pp_val * min_valid_vpp_factor;
+                    vpp_seq(3) = vpp_seq(2);
+                    vpp_seq(2) = vpp_seq(1);
+                    vpp_seq(1) = pp_val;
+                    min_valid_vpp = 0.5 * vpp_seq(1) + 0.3 * vpp_seq(2) + 0.2 * vpp_seq(3);
+                else
+                    %min_valid_vpp = (min_valid_vpp_lo + min_valid_vpp) * min_valid_vpp_factor2;
+                    min_valid_vpp = 0.4 * min_valid_vpp_lo + 0.3 * vpp_seq(1) + 0.2 * vpp_seq(2) + 0.1 * vpp_seq(3);
+                    if pp_val >= min_valid_vpp
+                        valley = valley + 1;
+                        i
+                        pp_val
+                        %min_valid_vpp = pp_val * min_valid_vpp_factor;
+                        vpp_seq(3) = vpp_seq(2);
+                        vpp_seq(2) = vpp_seq(1);
+                        vpp_seq(1) = pp_val;
+                        min_valid_vpp = 0.5 * vpp_seq(1) + 0.3 * vpp_seq(2) + 0.2 * vpp_seq(3);
+                    end
+                end
+            else
+                vpp_seq(3) = vpp_seq(2);
+                vpp_seq(2) = vpp_seq(1);
+                vpp_seq(1) = min_valid_vpp_lo;
+                min_valid_vpp = 0.6 * vpp_seq(1) + 0.3 * vpp_seq(2) + 0.1 * vpp_seq(3);
+                if ascend_count > decend_count
+                    decend_count = 0;
+                elseif decend_count > ascend_count
+                    ascend_count = 0;
+                    if filtered_compose(i) < valley_val
+                        valley_val = filtered_compose(i);
+                    end
+                end
+            end
+            min_wavelength = 0.5 * wavelength_seq(1)  + 0.4 * wavelength_seq(2)  + 0.1 * wavelength_seq(3);
+        if min_wavelength < min_wavelength_lo
+            min_wavelength = min_wavelength_lo;
+        end
+    else
+    end
+    if ascend_count + decend_count >= max_wavlength
+        peak_val = filtered_compose(i);
+        valley_val = filtered_compose(i);
+        ascend(1) = 0;
+        ascend(2) = 0;
+        ascend_count = 0;
+        decend_count = 0;
+    end
+end
+
+peak
+valley
